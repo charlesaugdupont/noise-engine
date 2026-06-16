@@ -28,6 +28,18 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
+    // APVTS holds all plugin parameters and handles save/load automatically
+    juce::AudioProcessorValueTreeState apvts;
+
 private:
+    // Builds the parameter layout — called once in the constructor
+    static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
+    // --- Bit Crusher state ---
+    // Tracks how many input samples we've accumulated before updating the held sample
+    int sampleCounter { 0 };
+    // The last held sample value per channel (for sample rate reduction)
+    float heldSample[2] { 0.0f, 0.0f };
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseEngineAudioProcessor)
 };

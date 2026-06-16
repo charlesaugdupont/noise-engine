@@ -6,7 +6,7 @@ add_subdirectory(JUCE)
 juce_add_plugin(NoiseEngine
     PLUGIN_MANUFACTURER_CODE Neng
     PLUGIN_CODE Nois
-    FORMATS VST3 AU
+    FORMATS VST3 AU Standalone
     PRODUCT_NAME "Noise Engine"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
@@ -14,6 +14,7 @@ juce_add_plugin(NoiseEngine
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD TRUE
+    VST3_COPY_DIR "/Library/Audio/Plug-Ins/VST3"
 )
 
 juce_generate_juce_header(NoiseEngine)
