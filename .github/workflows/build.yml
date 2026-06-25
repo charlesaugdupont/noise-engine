@@ -30,14 +30,11 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
-      - name: Show artefacts directory
-        run: find build/NoiseEngine_artefacts -type f | sort
-
       - name: Upload VST3 artifact
         uses: actions/upload-artifact@v4
         with:
           name: NoiseEngine-macOS-VST3
-          path: build/NoiseEngine_artefacts/VST3/
+          path: "build/NoiseEngine_artefacts/Release/VST3/Noise Engine.vst3"
           if-no-files-found: error
 
   # -----------------------------------------------------------------------
@@ -73,7 +70,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: NoiseEngine-Windows-VST3
-          path: build/NoiseEngine_artefacts/VST3/
+          path: "build/NoiseEngine_artefacts/Release/VST3/Noise Engine.vst3"
           if-no-files-found: error
 
   # -----------------------------------------------------------------------
@@ -119,5 +116,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: NoiseEngine-Linux-VST3
-          path: build/NoiseEngine_artefacts/VST3/
+          path: "build/NoiseEngine_artefacts/Release/VST3/Noise Engine.vst3"
           if-no-files-found: error
