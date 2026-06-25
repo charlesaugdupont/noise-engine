@@ -13,8 +13,6 @@ juce_add_plugin(NoiseEngine
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-    COPY_PLUGIN_AFTER_BUILD TRUE
-    VST3_COPY_DIR "/Library/Audio/Plug-Ins/VST3"
 )
 
 juce_generate_juce_header(NoiseEngine)
