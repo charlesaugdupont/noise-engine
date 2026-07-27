@@ -32,29 +32,29 @@ NoiseEngineAudioEditor::NoiseEngineAudioEditor(NoiseEngineAudioProcessor& p)
     addAndMakeVisible(stepSequencer);
     addAndMakeVisible(generatorPanel);
 
-    timingSection.addChoice(ParamIDs::syncMode,     "SYNC");
-    timingSection.addChoice(ParamIDs::rate,         "RATE");
-    timingSection.addChoice(ParamIDs::rateModifier, "MODIFIER");
-    timingSection.addKnob(ParamIDs::freeBpm,        "FREE BPM");
-    timingSection.addKnob(ParamIDs::swing,          "SWING");
+    timingSection.addChoice(ParamIDs::syncMode,     "SYNC",     "DAW: locked to host tempo. Free: runs at its own tempo, set by Free BPM, ignoring the host.");
+    timingSection.addChoice(ParamIDs::rate,         "RATE",     "Step duration, as a note division of the tempo.");
+    timingSection.addChoice(ParamIDs::rateModifier, "MODIFIER", "Straight, dotted, or triplet feel applied to the rate.");
+    timingSection.addKnob(ParamIDs::freeBpm,        "FREE BPM", "Tempo used when Sync is set to Free.");
+    timingSection.addKnob(ParamIDs::swing,          "SWING",    "Delays every other step for a shuffled feel.");
     addAndMakeVisible(timingSection);
 
-    shapeSection.addKnob(ParamIDs::attack,      "ATTACK");
-    shapeSection.addKnob(ParamIDs::hold,        "HOLD");
-    shapeSection.addKnob(ParamIDs::release,     "RELEASE");
-    shapeSection.addKnob(ParamIDs::stepGlide,   "GLIDE");
-    shapeSection.addKnob(ParamIDs::probability, "PROB.");
+    shapeSection.addKnob(ParamIDs::attack,      "ATTACK",  "How quickly each step fades in.");
+    shapeSection.addKnob(ParamIDs::hold,        "HOLD",    "How long each step stays at full level before releasing.");
+    shapeSection.addKnob(ParamIDs::release,     "RELEASE", "How quickly each step fades out.");
+    shapeSection.addKnob(ParamIDs::stepGlide,   "GLIDE",   "Blends the gate into a smooth slide between step levels instead of a hard on/off.");
+    shapeSection.addKnob(ParamIDs::probability, "PROB.",   "Chance that an enabled step actually fires each time the pattern loops.");
     addAndMakeVisible(shapeSection);
 
     // One full-width row rather than Stereo/Output as separate half-width
     // panels — Stereo (Mode + Offset) alone looked sparse/empty at the same
     // width Output (3 knobs) needed, and both fit comfortably in a single
     // row at full panel width anyway.
-    stereoOutputSection.addChoice(ParamIDs::stereoMode,   "MODE");
-    stereoOutputSection.addKnob(ParamIDs::stereoOffset,   "OFFSET");
-    stereoOutputSection.addKnob(ParamIDs::depth,          "DEPTH");
-    stereoOutputSection.addKnob(ParamIDs::mix,            "MIX");
-    stereoOutputSection.addKnob(ParamIDs::outputGain,     "OUTPUT");
+    stereoOutputSection.addChoice(ParamIDs::stereoMode,   "MODE",   "Mono: identical both channels. L-R Offset: shifts the right channel's timing. Mid-Side: shifts the stereo width instead of left/right.");
+    stereoOutputSection.addKnob(ParamIDs::stereoOffset,   "OFFSET", "How far the second channel's timing shifts, as a fraction of one step. Only audible when Mode isn't Mono.");
+    stereoOutputSection.addKnob(ParamIDs::depth,          "DEPTH",  "How strongly the gate affects the signal — 0% leaves it untouched, 100% is a full gate.");
+    stereoOutputSection.addKnob(ParamIDs::mix,            "MIX",    "Blends between the dry and gated signal.");
+    stereoOutputSection.addKnob(ParamIDs::outputGain,     "OUTPUT", "Output level trim.");
     stereoOutputSection.setCompactSingleRow(true);
     addAndMakeVisible(stereoOutputSection);
 

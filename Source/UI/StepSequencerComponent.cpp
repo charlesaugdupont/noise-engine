@@ -24,9 +24,9 @@ StepSequencerComponent::StepSequencerComponent(NoiseEngineAudioProcessor& proces
     // exact entry.
     lengthSlider.setSliderStyle(juce::Slider::LinearHorizontal);
     lengthSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 40, headerHeight);
-    lengthSlider.setColour(juce::Slider::backgroundColourId, Palette::knobTrack);
-    lengthSlider.setColour(juce::Slider::trackColourId, Palette::accentCyan);
+    // background/track colours come from NoiseEngineLookAndFeel's Slider defaults.
     lengthSlider.setColour(juce::Slider::textBoxTextColourId, Palette::textWhite);
+    lengthSlider.setTooltip("Number of steps in the pattern (1-64).");
     lengthSlider.setColour(juce::Slider::textBoxBackgroundColourId, Palette::panelDark);
     lengthSlider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
     addAndMakeVisible(lengthSlider);
@@ -36,12 +36,12 @@ StepSequencerComponent::StepSequencerComponent(NoiseEngineAudioProcessor& proces
 
     addAndMakeVisible(wheel);
 
+    rotateLeftButton.setTooltip("Rotate the pattern left.");
+    rotateRightButton.setTooltip("Rotate the pattern right.");
+
+    // Colours come from NoiseEngineLookAndFeel's TextButton defaults.
     for (auto* button : { &rotateLeftButton, &rotateRightButton })
-    {
-        button->setColour(juce::TextButton::buttonColourId, Palette::panelDark);
-        button->setColour(juce::TextButton::textColourOffId, Palette::accentCyan);
         addAndMakeVisible(*button);
-    }
 
     rotateLeftButton.onClick  = [this] { rotatePattern([](StepPattern& p) { PatternGenerators::rotateLeft(p); }); };
     rotateRightButton.onClick = [this] { rotatePattern([](StepPattern& p) { PatternGenerators::rotateRight(p); }); };

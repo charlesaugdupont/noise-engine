@@ -49,10 +49,21 @@ private:
 
     juce::Label randomCaption, densityCaption, jitterCaption;
     juce::Slider densitySlider, jitterSlider;
-    juce::TextButton randomizeButton { "RANDOMIZE" };
 
-    juce::TextButton duplicateButton { "2x" };
+    // Custom-painted die-face icon rather than a Unicode glyph in a
+    // TextButton — glyph size is capped by LookAndFeel::getTextButtonFont
+    // (min(16px, height*0.6)), which reads as small; drawing the die
+    // ourselves sizes it purely from the button's bounds instead.
+    class DiceButton : public juce::Button
+    {
+    public:
+        DiceButton() : juce::Button("Randomize") {}
+        void paintButton(juce::Graphics&, bool isMouseOverButton, bool isButtonDown) override;
+    };
+    DiceButton randomizeButton;
+
     juce::TextButton halveButton     { "0.5x" };
+    juce::TextButton duplicateButton { "2x" };
 
     void timerCallback() override;
     void setupSlider(juce::Slider& slider, double minV, double maxV, double step, double defaultV);

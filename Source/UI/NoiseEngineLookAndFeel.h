@@ -1,9 +1,10 @@
 #pragma once
 #include <JuceHeader.h>
 
-// Custom LookAndFeel for the whole plugin. drawRotarySlider is a genuine
-// custom paint (promoted from the class that used to sit locally at the
-// top of PluginEditor.cpp). Everything else — ComboBox, PopupMenu,
+// Custom LookAndFeel for the whole plugin. drawRotarySlider and
+// drawCallOutBoxBackground are genuine custom paints (the latter so the
+// preset popup's CallOutBox matches the plugin's dark/cyan panels instead
+// of V4's default grey scheme). Everything else — ComboBox, PopupMenu,
 // TextButton, ToggleButton, TextEditor, AlertWindow — is themed by setting
 // colour IDs in the constructor rather than overriding their paint methods:
 // LookAndFeel_V4's default rendering for those already reads from exactly
@@ -20,4 +21,8 @@ public:
                            float sliderPosProportional,
                            float rotaryStartAngle, float rotaryEndAngle,
                            juce::Slider&) override;
+
+    void drawCallOutBoxBackground(juce::CallOutBox& box, juce::Graphics& g,
+                                   const juce::Path& path, juce::Image& cachedImage) override;
+    float getCallOutBoxCornerSize(const juce::CallOutBox&) override;
 };

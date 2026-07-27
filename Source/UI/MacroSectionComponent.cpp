@@ -41,11 +41,12 @@ MacroSectionComponent::MacroSectionComponent(NoiseEngineAudioProcessor& processo
     addAndMakeVisible(titleLabel);
 }
 
-void MacroSectionComponent::addChoice(const juce::String& paramID, const juce::String& labelText)
+void MacroSectionComponent::addChoice(const juce::String& paramID, const juce::String& labelText, const juce::String& tooltip)
 {
     auto control = std::make_unique<ChoiceControl>();
 
     control->box.setJustificationType(juce::Justification::centred);
+    control->box.setTooltip(tooltip);
     addAndMakeVisible(control->box);
 
     control->label.setText(labelText, juce::dontSendNotification);
@@ -63,12 +64,13 @@ void MacroSectionComponent::addChoice(const juce::String& paramID, const juce::S
     choices.push_back(std::move(control));
 }
 
-void MacroSectionComponent::addKnob(const juce::String& paramID, const juce::String& labelText)
+void MacroSectionComponent::addKnob(const juce::String& paramID, const juce::String& labelText, const juce::String& tooltip)
 {
     auto control = std::make_unique<KnobControl>();
 
     control->slider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
     control->slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 16);
+    control->slider.setTooltip(tooltip);
     // Display precision is controlled by the parameter's own
     // stringFromValue function (see createParameterLayout/displayAttributes)
     // — SliderAttachment installs a textFromValueFunction that calls

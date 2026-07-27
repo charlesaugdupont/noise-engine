@@ -1,46 +1,37 @@
 #include "PresetBarComponent.h"
 #include "Colours.h"
+#include "PresetListComponent.h"
 
 PresetBarComponent::PresetBarComponent(NoiseEngineAudioProcessor& processorToUse)
     : processor(processorToUse)
 {
-    for (auto* button : { &prevButton, &nextButton, &saveAsButton, &deleteButton })
-    {
-        button->setColour(juce::TextButton::buttonColourId, Palette::panelDark);
-        button->setColour(juce::TextButton::textColourOffId, Palette::accentCyan);
+    // Colours come from NoiseEngineLookAndFeel's TextButton defaults.
+    for (auto* button : { &prevButton, &nextButton, &presetNameButton, &saveAsButton, &deleteButton })
         addAndMakeVisible(*button);
-    }
+
+    prevButton.setTooltip("Load the previous preset.");
+    nextButton.setTooltip("Load the next preset.");
+    presetNameButton.setTooltip("Browse presets.");
+    saveAsButton.setTooltip("Save the current settings as a new preset.");
+    deleteButton.setTooltip("Delete this preset. Only available for your own saved presets.");
 
     prevButton.onClick = [this]
     {
         processor.getPresetManager().loadPrevious();
-        refreshPresetBox();
+        refreshPresetDisplay();
     };
 
     nextButton.onClick = [this]
     {
         processor.getPresetManager().loadNext();
-        refreshPresetBox();
+        refreshPresetDisplay();
     };
 
-    presetBox.setColour(juce::ComboBox::backgroundColourId, Palette::panelDark);
-    presetBox.setColour(juce::ComboBox::textColourId, Palette::textWhite);
-    presetBox.setColour(juce::ComboBox::outlineColourId, Palette::knobTrack);
-    presetBox.onChange = [this]
-    {
-        const int id = presetBox.getSelectedId();
-        if (id <= 0 || id > itemNamesById.size())
-            return;
+    presetNameButton.onClick = [this] { showPresetPopup(); };
+    saveAsButton.onClick     = [this] { showSaveAsDialog(); };
+    deleteButton.onClick     = [this] { showDeleteConfirm(); };
 
-        processor.getPresetManager().loadPreset(itemNamesById[id - 1]);
-        refreshPresetBox();
-    };
-    addAndMakeVisible(presetBox);
-
-    saveAsButton.onClick   = [this] { showSaveAsDialog(); };
-    deleteButton.onClick   = [this] { showDeleteConfirm(); };
-
-    refreshPresetBox();
+    refreshPresetDisplay();
 }
 
 void PresetBarComponent::resized()
@@ -59,43 +50,46 @@ void PresetBarComponent::resized()
     deleteButton.setBounds(bounds.removeFromRight(70));
     bounds.removeFromRight(gap);
 
-    presetBox.setBounds(bounds);
+    presetNameButton.setBounds(bounds);
 }
 
-void PresetBarComponent::refreshPresetBox()
+void PresetBarComponent::refreshPresetDisplay()
+{
+    auto& pm = processor.getPresetManager();
+    const auto currentName = pm.getCurrentPresetName();
+
+    presetNameButton.setButtonText(currentName + "  \xE2\x96\xBE"); // U+25BE small down triangle
+    deleteButton.setEnabled(! pm.isFactoryPresetName(currentName));
+}
+
+// ---------------------------------------------------------------------------
+// Preset popup — a PresetListComponent hosted in a CallOutBox, launched with
+// the top-level editor as its parent. CallOutBox constrains its own position
+// to whatever parent it's given, so anchoring it to the (fixed-size) editor
+// window rather than the screen means it can never get clipped or scrolled
+// oddly near a screen edge the way the old ComboBox's native popup could.
+// ---------------------------------------------------------------------------
+void PresetBarComponent::showPresetPopup()
 {
     auto& pm = processor.getPresetManager();
 
-    presetBox.clear(juce::dontSendNotification);
-    itemNamesById.clear();
+    auto listComponent = std::make_unique<PresetListComponent>(
+        pm.getFactoryPresetNames(), pm.getUserPresetNames(), pm.getCurrentPresetName());
 
-    presetBox.addSectionHeading("FACTORY");
-    for (auto& name : pm.getFactoryPresetNames())
+    auto* listPtr = listComponent.get();
+    listComponent->setSize(PresetListComponent::width, listComponent->preferredHeight());
+
+    auto* target = presetNameButton.getTopLevelComponent();
+    const auto areaInTarget = target->getLocalArea(&presetNameButton, presetNameButton.getLocalBounds());
+
+    auto& callout = juce::CallOutBox::launchAsynchronously(std::move(listComponent), areaInTarget, target);
+
+    listPtr->onSelect = [this, &callout](const juce::String& name)
     {
-        itemNamesById.add(name);
-        presetBox.addItem(name, itemNamesById.size());
-    }
-
-    auto userNames = pm.getUserPresetNames();
-    if (! userNames.isEmpty())
-    {
-        presetBox.addSectionHeading("USER");
-        for (auto& name : userNames)
-        {
-            itemNamesById.add(name);
-            presetBox.addItem(name, itemNamesById.size());
-        }
-    }
-
-    const auto currentName = pm.getCurrentPresetName();
-    const int  idx         = itemNamesById.indexOf(currentName);
-
-    if (idx >= 0)
-        presetBox.setSelectedId(idx + 1, juce::dontSendNotification);
-    else
-        presetBox.setText(currentName, juce::dontSendNotification);
-
-    deleteButton.setEnabled(! pm.isFactoryPresetName(currentName));
+        processor.getPresetManager().loadPreset(name);
+        refreshPresetDisplay();
+        callout.dismiss();
+    };
 }
 
 void PresetBarComponent::showSaveAsDialog()
@@ -124,7 +118,7 @@ void PresetBarComponent::showSaveAsDialog()
             else
             {
                 pm.saveAsNewPreset(name);
-                refreshPresetBox();
+                refreshPresetDisplay();
             }
         }
 
@@ -148,7 +142,7 @@ void PresetBarComponent::showDeleteConfirm()
         if (result == 1)
         {
             processor.getPresetManager().deletePreset(name);
-            refreshPresetBox();
+            refreshPresetDisplay();
         }
     });
 }

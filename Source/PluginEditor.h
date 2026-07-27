@@ -30,5 +30,11 @@ private:
     MacroSectionComponent shapeSection;
     MacroSectionComponent stereoOutputSection;
 
+    // Must be constructed after the controls above so it starts watching
+    // for hovers over an already-populated component tree; `this` as parent
+    // keeps it scaled/clipped with the editor rather than a native desktop
+    // window (see TooltipWindow's own docs on why that matters for plugins).
+    juce::TooltipWindow tooltipWindow { this };
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseEngineAudioEditor)
 };

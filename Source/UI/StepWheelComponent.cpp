@@ -195,6 +195,19 @@ void StepWheelComponent::mouseUp(const juce::MouseEvent&)
     dragStartedInCenter  = false;
 }
 
+juce::String StepWheelComponent::getTooltip()
+{
+    const auto hit = resolveHit(getMouseXYRelative().toFloat());
+
+    if (hit.inCenter)
+        return "Bypass the gate.";
+
+    if (hit.inRing)
+        return "Click to toggle a step. Drag up/down to set its level. Double-click to reset to full.";
+
+    return {};
+}
+
 void StepWheelComponent::mouseDoubleClick(const juce::MouseEvent& e)
 {
     const auto hit = resolveHit(e.position);

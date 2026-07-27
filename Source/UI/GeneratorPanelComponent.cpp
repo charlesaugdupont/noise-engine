@@ -60,12 +60,19 @@ GeneratorPanelComponent::GeneratorPanelComponent(NoiseEngineAudioProcessor& proc
     setupSlider(densitySlider, 0.0, 100.0, 1.0, 50.0);
     setupSlider(jitterSlider,  0.0, 100.0, 1.0, 0.0);
 
-    for (auto* button : { &applyEuclideanButton, &randomizeButton, &duplicateButton, &halveButton })
-    {
-        button->setColour(juce::TextButton::buttonColourId, Palette::panelDark);
-        button->setColour(juce::TextButton::textColourOffId, Palette::accentCyan);
+    pulsesSlider.setTooltip("Number of steps to turn on, spread evenly across the pattern.");
+    densitySlider.setTooltip("Percentage of steps to randomly turn on.");
+    jitterSlider.setTooltip("Random level variation applied to steps that get turned on.");
+
+    applyEuclideanButton.setTooltip("Generate a new pattern using the Euclidean algorithm.");
+    randomizeButton.setTooltip("Generate a new random pattern.");
+    duplicateButton.setTooltip("Double the pattern length by repeating it.");
+    halveButton.setTooltip("Halve the pattern length.");
+
+    // Colours come from NoiseEngineLookAndFeel's TextButton defaults.
+    for (auto* button : { &applyEuclideanButton, &duplicateButton, &halveButton })
         addAndMakeVisible(*button);
-    }
+    addAndMakeVisible(randomizeButton);
 
     applyEuclideanButton.onClick = [this]
     {
@@ -100,14 +107,43 @@ GeneratorPanelComponent::~GeneratorPanelComponent()
     stopTimer();
 }
 
+// Rounded-square die face with 5 pips, sized purely from the button's own
+// bounds (not font metrics) so it can be made bigger just by giving the
+// button more room. Background reuses the LookAndFeel's normal button
+// background (hover/press states included) so it matches its siblings.
+void GeneratorPanelComponent::DiceButton::paintButton(juce::Graphics& g, bool isMouseOverButton, bool isButtonDown)
+{
+    getLookAndFeel().drawButtonBackground(g, *this,
+                                           findColour(juce::TextButton::buttonColourId),
+                                           isMouseOverButton, isButtonDown);
+
+    constexpr float size = 20.0f;
+    auto die = getLocalBounds().toFloat().withSizeKeepingCentre(size, size);
+
+    g.setColour(findColour(juce::TextButton::textColourOffId));
+    g.drawRoundedRectangle(die, size * 0.18f, juce::jmax(1.5f, size * 0.08f));
+
+    const float pipRadius = size * 0.09f;
+    const float inset     = size * 0.24f;
+    const juce::Point<float> pips[] = {
+        die.getTopLeft().translated(inset, inset),
+        die.getTopRight().translated(-inset, inset),
+        die.getCentre(),
+        die.getBottomLeft().translated(inset, -inset),
+        die.getBottomRight().translated(-inset, -inset)
+    };
+
+    for (auto& p : pips)
+        g.fillEllipse(p.x - pipRadius, p.y - pipRadius, pipRadius * 2.0f, pipRadius * 2.0f);
+}
+
 void GeneratorPanelComponent::setupSlider(juce::Slider& slider, double minV, double maxV, double step, double defaultV)
 {
     slider.setSliderStyle(juce::Slider::LinearHorizontal);
     slider.setRange(minV, maxV, step);
     slider.setValue(defaultV, juce::dontSendNotification);
     slider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 34, 20);
-    slider.setColour(juce::Slider::backgroundColourId, Palette::knobTrack);
-    slider.setColour(juce::Slider::trackColourId, Palette::accentCyan);
+    // background/track colours come from NoiseEngineLookAndFeel's Slider defaults.
     slider.setColour(juce::Slider::textBoxTextColourId, Palette::textWhite);
     slider.setColour(juce::Slider::textBoxBackgroundColourId, Palette::panelDark);
     slider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
@@ -190,7 +226,7 @@ void GeneratorPanelComponent::resized()
     // Row 2 — density-random.
     auto row2        = bounds.removeFromTop(rowH);
     auto row2Buttons = row2.removeFromRight(buttonColW);
-    randomizeButton.setBounds(row2Buttons.withSizeKeepingCentre(90, 24));
+    randomizeButton.setBounds(row2Buttons.withSizeKeepingCentre(36, rowH));
 
     randomCaption.setBounds(row2.removeFromLeft(58));
     row2.removeFromLeft(gap);

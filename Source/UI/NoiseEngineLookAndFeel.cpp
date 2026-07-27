@@ -43,6 +43,9 @@ NoiseEngineLookAndFeel::NoiseEngineLookAndFeel()
     setColour(juce::Slider::trackColourId, Palette::accentCyan);
     setColour(juce::Slider::backgroundColourId, Palette::knobTrack);
 
+    // ScrollBar (the preset popup's list, when it's taller than fits)
+    setColour(juce::ScrollBar::thumbColourId, Palette::accentCyan);
+
     // Label (fallback for any label that doesn't set its own colour, e.g.
     // ComboBox's internal "nothing selected" placeholder text)
     setColour(juce::Label::textColourId, Palette::textWhite);
@@ -96,4 +99,32 @@ void NoiseEngineLookAndFeel::drawRotarySlider(juce::Graphics& g,
     // Centre dot
     g.setColour(Palette::accentCyan);
     g.fillEllipse(centreX - 3.0f, centreY - 3.0f, 6.0f, 6.0f);
+}
+
+void NoiseEngineLookAndFeel::drawCallOutBoxBackground(juce::CallOutBox& box, juce::Graphics& g,
+                                                        const juce::Path& path, juce::Image& cachedImage)
+{
+    if (cachedImage.isNull())
+    {
+        cachedImage = juce::Image(juce::Image::ARGB, box.getWidth(), box.getHeight(), true,
+                                   *g.getInternalContext().getPreferredImageTypeForTemporaryImages());
+        cachedImage.setBackupEnabled(false);
+
+        juce::Graphics g2(cachedImage);
+        juce::DropShadow(juce::Colours::black.withAlpha(0.5f), 8, { 0, 2 }).drawForPath(g2, path);
+    }
+
+    g.setColour(juce::Colours::black);
+    g.drawImageAt(cachedImage, 0, 0);
+
+    g.setColour(Palette::panelDark);
+    g.fillPath(path);
+
+    g.setColour(Palette::knobTrack);
+    g.strokePath(path, juce::PathStrokeType(1.0f));
+}
+
+float NoiseEngineLookAndFeel::getCallOutBoxCornerSize(const juce::CallOutBox&)
+{
+    return 6.0f;
 }

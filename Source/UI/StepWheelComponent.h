@@ -19,7 +19,8 @@
 // bright arc in a dedicated band just outside the main ring, rather than a
 // translucent tint behind the wedges — the tint got lost against similarly
 // coloured wedge fills, especially at fast rates.
-class StepWheelComponent : public juce::Component
+class StepWheelComponent : public juce::Component,
+                            public juce::TooltipClient
 {
 public:
     explicit StepWheelComponent(NoiseEngineAudioProcessor& processorToUse);
@@ -31,6 +32,13 @@ public:
     void mouseDrag(const juce::MouseEvent&) override;
     void mouseUp(const juce::MouseEvent&) override;
     void mouseDoubleClick(const juce::MouseEvent&) override;
+
+    // Dynamic rather than a single setTooltip() string — this one component
+    // covers both the ring (per-step editing) and the centre power button
+    // (bypass), which want completely different explanations. Reuses
+    // resolveHit() against the current mouse position rather than tracking
+    // hover state separately.
+    juce::String getTooltip() override;
 
     int getPatternLength() const noexcept { return pattern.length; }
 

@@ -21,7 +21,7 @@ struct GateMacroParams
 {
     int   rateIndex               = 4;     // index into ParamChoices::rate (4 == "1/16")
     int   rateModifierIndex       = 0;     // 0 = Straight, 1 = Dotted, 2 = Triplet
-    int   syncModeIndex           = 0;     // 0 = DAW Sync, 1 = Free
+    int   syncModeIndex           = 0;     // 0 = DAW, 1 = Free
     float freeBpm                 = 120.0f;
     int   patternLength           = 16;
     float attackPct               = 5.0f;

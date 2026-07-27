@@ -14,8 +14,8 @@ class MacroSectionComponent : public juce::Component
 public:
     MacroSectionComponent(NoiseEngineAudioProcessor& processorToUse, juce::String titleText);
 
-    void addChoice(const juce::String& paramID, const juce::String& labelText);
-    void addKnob(const juce::String& paramID, const juce::String& labelText);
+    void addChoice(const juce::String& paramID, const juce::String& labelText, const juce::String& tooltip = {});
+    void addKnob(const juce::String& paramID, const juce::String& labelText, const juce::String& tooltip = {});
 
     // Opt-in: lays every control (choices then knobs, in add order) out on
     // a single row instead of choices-row-then-knob-grid. Off by default —
