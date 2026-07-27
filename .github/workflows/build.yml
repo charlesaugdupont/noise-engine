@@ -62,10 +62,6 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
-      - name: Show artefacts directory
-        run: dir /s /b build\NoiseEngine_artefacts
-        shell: cmd
-
       - name: Upload VST3 artifact
         uses: actions/upload-artifact@v4
         with:
@@ -108,9 +104,6 @@ jobs:
 
       - name: Build
         run: cmake --build build --config Release --parallel
-
-      - name: Show artefacts directory
-        run: find build/NoiseEngine_artefacts -type f | sort
 
       - name: Upload VST3 artifact
         uses: actions/upload-artifact@v4

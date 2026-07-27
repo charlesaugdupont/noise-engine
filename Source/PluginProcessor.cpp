@@ -1,10 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
-
-// --- Parameter IDs (string constants to avoid typos) ---
-static const juce::String BITDEPTH_ID   = "bitDepth";
-static const juce::String DOWNSAMPLE_ID = "downsample";
-static const juce::String MIX_ID        = "mix";
+#include "DSP/ParameterIDs.h"
 
 // ---------------------------------------------------------------------------
 // Parameter layout
@@ -14,23 +10,78 @@ NoiseEngineAudioProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-    juce::ParameterID { BITDEPTH_ID, 1 },   // <-- add ParameterID with version hint
-    "Bit Depth",
-    juce::NormalisableRange<float>(1.0f, 16.0f, 0.01f),
-    16.0f));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID { ParamIDs::rate, 1 }, "Rate", ParamChoices::rate, 4));
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID { ParamIDs::rateModifier, 1 }, "Rate Modifier", ParamChoices::modifier, 0));
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID { ParamIDs::syncMode, 1 }, "Sync Mode", ParamChoices::syncMode, 0));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID { DOWNSAMPLE_ID, 1 },
-        "Downsample",
-        juce::NormalisableRange<float>(1.0f, 32.0f, 0.01f),
-        1.0f));
+        juce::ParameterID { ParamIDs::freeBpm, 1 }, "Free BPM",
+        juce::NormalisableRange<float>(20.0f, 999.0f, 0.01f), 120.0f));
+
+    params.push_back(std::make_unique<juce::AudioParameterInt>(
+        juce::ParameterID { ParamIDs::patternLength, 1 }, "Pattern Length",
+        1, StepPattern::maxSteps, 16));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID { MIX_ID, 1 },
-        "Mix",
-        juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f),
-        1.0f));
+        juce::ParameterID { ParamIDs::attack, 1 }, "Attack",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f), 5.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { ParamIDs::hold, 1 }, "Hold",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f), 55.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { ParamIDs::release, 1 }, "Release",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f), 35.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { ParamIDs::swing, 1 }, "Swing",
+        juce::NormalisableRange<float>(0.0f, 75.0f, 0.01f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID { ParamIDs::stereoMode, 1 }, "Stereo Mode", ParamChoices::stereoMode, 0));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { ParamIDs::stereoOffset, 1 }, "Stereo Offset",
+        juce::NormalisableRange<float>(-100.0f, 100.0f, 0.01f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { ParamIDs::depth, 1 }, "Depth",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f), 100.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { ParamIDs::mix, 1 }, "Mix",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f), 100.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { ParamIDs::probability, 1 }, "Probability",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f), 100.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { ParamIDs::outputGain, 1 }, "Output Gain",
+        juce::NormalisableRange<float>(-24.0f, 24.0f, 0.01f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel("dB")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { ParamIDs::stepGlide, 1 }, "Step Glide",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID { ParamIDs::bypass, 1 }, "Bypass", false));
 
     return { params.begin(), params.end() };
 }
@@ -43,7 +94,9 @@ NoiseEngineAudioProcessor::NoiseEngineAudioProcessor()
         .withInput ("Input",  juce::AudioChannelSet::stereo(), true)
         .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       apvts(*this, nullptr, "Parameters", createParameterLayout())
-{}
+{
+    audioPatternCache = uiPattern;
+}
 
 NoiseEngineAudioProcessor::~NoiseEngineAudioProcessor() {}
 
@@ -52,13 +105,65 @@ NoiseEngineAudioProcessor::~NoiseEngineAudioProcessor() {}
 // ---------------------------------------------------------------------------
 void NoiseEngineAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    // Reset held-sample state when playback starts or settings change
-    sampleCounter  = 0;
-    heldSample[0]  = 0.0f;
-    heldSample[1]  = 0.0f;
+    engine.prepare(sampleRate, samplesPerBlock);
 }
 
 void NoiseEngineAudioProcessor::releaseResources() {}
+
+// ---------------------------------------------------------------------------
+// Transport / parameter reads
+// ---------------------------------------------------------------------------
+TransportInfo NoiseEngineAudioProcessor::readTransportInfo() const
+{
+    TransportInfo info;
+
+    if (auto* playHead = getPlayHead())
+    {
+        if (const auto position = playHead->getPosition())
+        {
+            info.isPlaying = position->getIsPlaying();
+
+            if (const auto bpm = position->getBpm())
+            {
+                info.bpm = *bpm;
+                info.hasValidBpm = true;
+            }
+
+            if (const auto ppq = position->getPpqPosition())
+            {
+                info.ppqPosition = *ppq;
+                info.hasValidPpq = true;
+            }
+        }
+    }
+
+    return info;
+}
+
+GateMacroParams NoiseEngineAudioProcessor::readMacroParams() const
+{
+    GateMacroParams macros;
+
+    macros.rateIndex               = (int) apvts.getRawParameterValue(ParamIDs::rate)->load();
+    macros.rateModifierIndex       = (int) apvts.getRawParameterValue(ParamIDs::rateModifier)->load();
+    macros.syncModeIndex           = (int) apvts.getRawParameterValue(ParamIDs::syncMode)->load();
+    macros.freeBpm                 = apvts.getRawParameterValue(ParamIDs::freeBpm)->load();
+    macros.patternLength           = (int) apvts.getRawParameterValue(ParamIDs::patternLength)->load();
+    macros.attackPct               = apvts.getRawParameterValue(ParamIDs::attack)->load();
+    macros.holdPct                 = apvts.getRawParameterValue(ParamIDs::hold)->load();
+    macros.releasePct              = apvts.getRawParameterValue(ParamIDs::release)->load();
+    macros.swingPct                = apvts.getRawParameterValue(ParamIDs::swing)->load();
+    macros.stereoModeIndex         = (int) apvts.getRawParameterValue(ParamIDs::stereoMode)->load();
+    macros.stereoOffsetPct         = apvts.getRawParameterValue(ParamIDs::stereoOffset)->load();
+    macros.depth                   = apvts.getRawParameterValue(ParamIDs::depth)->load() / 100.0f;
+    macros.mix                     = apvts.getRawParameterValue(ParamIDs::mix)->load() / 100.0f;
+    macros.probability             = apvts.getRawParameterValue(ParamIDs::probability)->load() / 100.0f;
+    macros.outputGainDb            = apvts.getRawParameterValue(ParamIDs::outputGain)->load();
+    macros.stepGlidePct            = apvts.getRawParameterValue(ParamIDs::stepGlide)->load();
+    macros.bypass                  = apvts.getRawParameterValue(ParamIDs::bypass)->load() > 0.5f;
+
+    return macros;
+}
 
 // ---------------------------------------------------------------------------
 // Audio processing
@@ -66,48 +171,56 @@ void NoiseEngineAudioProcessor::releaseResources() {}
 void NoiseEngineAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                                               juce::MidiBuffer& midiMessages)
 {
-    juce::ScopedNoDenormals noDenormals; // prevents CPU spikes from denormal floats
+    juce::ignoreUnused(midiMessages);
 
-    // Read current parameter values (thread-safe atomic reads via APVTS)
-    const float bitDepth   = apvts.getRawParameterValue(BITDEPTH_ID)->load();
-    const float downsample = apvts.getRawParameterValue(DOWNSAMPLE_ID)->load();
-    const float mix        = apvts.getRawParameterValue(MIX_ID)->load();
+    const auto transportInfo = readTransportInfo();
+    const auto macros        = readMacroParams();
 
-    // Number of quantisation levels for the chosen bit depth: 2^bitDepth
-    // e.g. 8-bit → 256 levels, 4-bit → 16 levels
-    const float levels = std::pow(2.0f, bitDepth);
-
-    const int numChannels = buffer.getNumChannels();
-    const int numSamples  = buffer.getNumSamples();
-
-    for (int sample = 0; sample < numSamples; ++sample)
+    // Opportunistic, never-blocking refresh of the audio thread's pattern copy.
     {
-        // --- Sample Rate Reduction ---
-        // Every `downsample` input samples we latch a new held value.
-        // Between latches we output the same held sample (zero-order hold).
-        bool latchNewSample = (sampleCounter == 0);
-        sampleCounter = (sampleCounter + 1) % static_cast<int>(downsample);
-
-        for (int ch = 0; ch < numChannels && ch < 2; ++ch)
-        {
-            float* channelData = buffer.getWritePointer(ch);
-            const float dry = channelData[sample];
-
-            if (latchNewSample)
-                heldSample[ch] = dry;
-
-            // --- Bit Depth Reduction ---
-            // Quantise to `levels` steps in the range [-1, 1]:
-            //   1. Scale up into [0, levels]
-            //   2. Round to nearest integer (quantise)
-            //   3. Scale back to [-1, 1]
-            float wet = std::round(heldSample[ch] * (levels * 0.5f)) / (levels * 0.5f);
-            wet = juce::jlimit(-1.0f, 1.0f, wet); // hard clip to prevent overflow
-
-            // Dry/wet blend
-            channelData[sample] = dry * (1.0f - mix) + wet * mix;
-        }
+        const juce::SpinLock::ScopedTryLockType tryLock(patternLock);
+        if (tryLock.isLocked())
+            audioPatternCache = uiPattern;
     }
+
+    engine.processBlock(buffer, transportInfo, audioPatternCache, macros);
+}
+
+// ---------------------------------------------------------------------------
+// Pattern editing API (message thread)
+// ---------------------------------------------------------------------------
+StepPattern NoiseEngineAudioProcessor::getPatternSnapshot() const
+{
+    const juce::SpinLock::ScopedLockType lock(patternLock);
+    return uiPattern;
+}
+
+void NoiseEngineAudioProcessor::setPatternSnapshot(const StepPattern& newPattern)
+{
+    const juce::SpinLock::ScopedLockType lock(patternLock);
+    uiPattern = newPattern;
+}
+
+int NoiseEngineAudioProcessor::getPatternLength() const
+{
+    return (int) apvts.getRawParameterValue(ParamIDs::patternLength)->load();
+}
+
+void NoiseEngineAudioProcessor::setPatternLength(int newLength)
+{
+    if (auto* param = dynamic_cast<juce::AudioParameterInt*>(apvts.getParameter(ParamIDs::patternLength)))
+        *param = newLength;
+}
+
+bool NoiseEngineAudioProcessor::isBypassed() const
+{
+    return apvts.getRawParameterValue(ParamIDs::bypass)->load() > 0.5f;
+}
+
+void NoiseEngineAudioProcessor::setBypassed(bool shouldBypass)
+{
+    if (auto* param = dynamic_cast<juce::AudioParameterBool*>(apvts.getParameter(ParamIDs::bypass)))
+        *param = shouldBypass;
 }
 
 // ---------------------------------------------------------------------------
@@ -133,20 +246,42 @@ void NoiseEngineAudioProcessor::setCurrentProgram(int)                    {}
 const juce::String NoiseEngineAudioProcessor::getProgramName(int)         { return {}; }
 void NoiseEngineAudioProcessor::changeProgramName(int, const juce::String&) {}
 
+juce::ValueTree NoiseEngineAudioProcessor::captureFullState()
+{
+    auto state = apvts.copyState();
+    state.appendChild(getPatternSnapshot().toValueTree(), nullptr);
+    return state;
+}
+
+void NoiseEngineAudioProcessor::applyFullState(juce::ValueTree state)
+{
+    if (! state.isValid())
+        return;
+
+    auto patternTree = state.getChildWithName(StepPattern::patternType);
+    if (patternTree.isValid())
+    {
+        setPatternSnapshot(StepPattern::fromValueTree(patternTree));
+        state.removeChild(patternTree, nullptr);
+    }
+
+    apvts.replaceState(state);
+}
+
 void NoiseEngineAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-    // Serialise APVTS state to binary so the DAW can save/recall presets
-    auto state = apvts.copyState();
+    // Serialise macro params + pattern to binary so the DAW can save/recall
+    // full session state (see captureFullState).
+    auto state = captureFullState();
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
 }
 
 void NoiseEngineAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
-    // Restore APVTS state from binary
     std::unique_ptr<juce::XmlElement> xml(getXmlFromBinary(data, sizeInBytes));
     if (xml != nullptr && xml->hasTagName(apvts.state.getType()))
-        apvts.replaceState(juce::ValueTree::fromXml(*xml));
+        applyFullState(juce::ValueTree::fromXml(*xml));
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

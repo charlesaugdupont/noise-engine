@@ -1,115 +1,113 @@
 #include "PluginEditor.h"
-
-// ---------------------------------------------------------------------------
-// Colour palette (Neural DSP-inspired dark theme)
-// ---------------------------------------------------------------------------
-static const juce::Colour BG_DARK     { 0xFF1A1A1A };
-static const juce::Colour PANEL_DARK  { 0xFF242424 };
-static const juce::Colour ACCENT_CYAN { 0xFF00E5CC };
-static const juce::Colour TEXT_WHITE  { 0xFFE0E0E0 };
-static const juce::Colour KNOB_TRACK  { 0xFF3A3A3A };
-
-// ---------------------------------------------------------------------------
-// Custom LookAndFeel for a clean, modern rotary knob
-// ---------------------------------------------------------------------------
-class NoiseEngineLookAndFeel : public juce::LookAndFeel_V4
-{
-public:
-    void drawRotarySlider(juce::Graphics& g,
-                          int x, int y, int width, int height,
-                          float sliderPosProportional,
-                          float rotaryStartAngle, float rotaryEndAngle,
-                          juce::Slider&) override
-    {
-        const float radius  = (float)juce::jmin(width, height) * 0.5f - 4.0f;
-        const float centreX = (float)x + (float)width  * 0.5f;
-        const float centreY = (float)y + (float)height * 0.5f;
-        const float angle   = rotaryStartAngle
-                            + sliderPosProportional * (rotaryEndAngle - rotaryStartAngle);
-
-        // Background circle
-        g.setColour(KNOB_TRACK);
-        g.fillEllipse(centreX - radius, centreY - radius, radius * 2.0f, radius * 2.0f);
-
-        // Full arc track
-        juce::Path arcTrack;
-        arcTrack.addArc(centreX - radius, centreY - radius,
-                        radius * 2.0f, radius * 2.0f,
-                        rotaryStartAngle, rotaryEndAngle, true);
-        g.setColour(KNOB_TRACK.brighter(0.3f));
-        g.strokePath(arcTrack, juce::PathStrokeType(3.0f));
-
-        // Value arc (cyan fill up to current position)
-        juce::Path valueArc;
-        valueArc.addArc(centreX - radius, centreY - radius,
-                        radius * 2.0f, radius * 2.0f,
-                        rotaryStartAngle, angle, true);
-        g.setColour(ACCENT_CYAN);
-        g.strokePath(valueArc, juce::PathStrokeType(3.0f));
-
-        // Pointer line
-        const float pointerLength = radius * 0.55f;
-        const float pointerX = centreX + std::sin(angle) * pointerLength;
-        const float pointerY = centreY - std::cos(angle) * pointerLength;
-        g.setColour(TEXT_WHITE);
-        g.drawLine(centreX, centreY, pointerX, pointerY, 2.5f);
-
-        // Centre dot
-        g.setColour(ACCENT_CYAN);
-        g.fillEllipse(centreX - 3.0f, centreY - 3.0f, 6.0f, 6.0f);
-    }
-};
+#include "DSP/ParameterIDs.h"
+#include "UI/Colours.h"
+#include "UI/NoiseEngineLookAndFeel.h"
 
 // Single shared instance — must outlive the editor
 static NoiseEngineLookAndFeel neLookAndFeel;
+
+namespace
+{
+    constexpr int margin              = 16;
+    constexpr int comboW              = 100;
+    constexpr int comboH              = 24;
+    constexpr int knobSize            = 72;
+    constexpr int labelH              = 14;
+    constexpr int cellW               = 100;
+    constexpr int rowGap              = 16;
+    constexpr int colsPerRow          = 6;
+    constexpr int presetBarHeight      = PresetBarComponent::preferredHeight;
+    constexpr int stepSequencerHeight  = StepSequencerComponent::preferredHeight;
+    constexpr int generatorPanelHeight = GeneratorPanelComponent::preferredHeight;
+    constexpr int windowWidth          = margin * 2 + colsPerRow * cellW + 60; // extra room for the generator panel row
+}
 
 // ---------------------------------------------------------------------------
 // Constructor
 // ---------------------------------------------------------------------------
 NoiseEngineAudioEditor::NoiseEngineAudioEditor(NoiseEngineAudioProcessor& p)
-    : AudioProcessorEditor(&p), audioProcessor(p)
+    : AudioProcessorEditor(&p), audioProcessor(p), presetBar(p), stepSequencer(p), generatorPanel(p)
 {
     setLookAndFeel(&neLookAndFeel);
 
-    setupKnob(bitDepthKnob,   bitDepthLabel,   "BIT DEPTH");
-    setupKnob(downsampleKnob, downsampleLabel, "DOWNSAMPLE");
-    setupKnob(mixKnob,        mixLabel,        "MIX");
+    addAndMakeVisible(presetBar);
+    addAndMakeVisible(stepSequencer);
+    addAndMakeVisible(generatorPanel);
 
-    // Wire each knob to its APVTS parameter — keeps UI and DSP in sync automatically
-    bitDepthAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.apvts, "bitDepth",   bitDepthKnob);
-    downsampleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.apvts, "downsample", downsampleKnob);
-    mixAttachment        = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.apvts, "mix",        mixKnob);
+    addChoice(ParamIDs::syncMode,     "SYNC");
+    addChoice(ParamIDs::rate,         "RATE");
+    addChoice(ParamIDs::rateModifier, "MODIFIER");
+    addChoice(ParamIDs::stereoMode,   "STEREO");
 
-    setSize(480, 280);
+    addKnob(ParamIDs::freeBpm,       "FREE BPM");
+    addKnob(ParamIDs::swing,         "SWING");
+    addKnob(ParamIDs::attack,        "ATTACK");
+    addKnob(ParamIDs::hold,          "HOLD");
+    addKnob(ParamIDs::release,       "RELEASE");
+    addKnob(ParamIDs::stereoOffset,  "ST OFFSET");
+    addKnob(ParamIDs::depth,         "DEPTH");
+    addKnob(ParamIDs::mix,           "MIX");
+    addKnob(ParamIDs::outputGain,    "OUTPUT");
+    addKnob(ParamIDs::stepGlide,     "GLIDE");
+    addKnob(ParamIDs::probability,   "PROBABILITY");
+
+    // Bypass now lives as a power button in the wheel's centre; Prob On was
+    // removed entirely since it was fully redundant with the Probability
+    // knob (100% already means "no randomness", no separate flag needed).
+    setSize(windowWidth, presetBarHeight + rowGap + stepSequencerHeight + rowGap + generatorPanelHeight + rowGap + 300);
 }
 
 NoiseEngineAudioEditor::~NoiseEngineAudioEditor()
 {
-    setLookAndFeel(nullptr); // must clear before destruction
+    setLookAndFeel(nullptr);
 }
 
 // ---------------------------------------------------------------------------
-// Helper: configure a rotary knob + label
+// Control factories
 // ---------------------------------------------------------------------------
-void NoiseEngineAudioEditor::setupKnob(juce::Slider& knob,
-                                        juce::Label&  label,
-                                        const juce::String& labelText)
+void NoiseEngineAudioEditor::addKnob(const juce::String& paramID, const juce::String& labelText)
 {
-    knob.setSliderStyle(juce::Slider::RotaryVerticalDrag);
-    knob.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 18);
-    knob.setColour(juce::Slider::textBoxTextColourId,       TEXT_WHITE);
-    knob.setColour(juce::Slider::textBoxBackgroundColourId, PANEL_DARK);
-    knob.setColour(juce::Slider::textBoxOutlineColourId,    juce::Colours::transparentBlack);
-    addAndMakeVisible(knob);
+    auto control = std::make_unique<KnobControl>();
 
-    label.setText(labelText, juce::dontSendNotification);
-    label.setFont(juce::Font(11.0f, juce::Font::bold));
-    label.setColour(juce::Label::textColourId, ACCENT_CYAN);
-    label.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(label);
+    control->slider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
+    control->slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 18);
+    control->slider.setColour(juce::Slider::textBoxTextColourId,       Palette::textWhite);
+    control->slider.setColour(juce::Slider::textBoxBackgroundColourId, Palette::panelDark);
+    control->slider.setColour(juce::Slider::textBoxOutlineColourId,    juce::Colours::transparentBlack);
+    addAndMakeVisible(control->slider);
+
+    control->label.setText(labelText, juce::dontSendNotification);
+    control->label.setFont(juce::Font(11.0f, juce::Font::bold));
+    control->label.setColour(juce::Label::textColourId, Palette::accentCyan);
+    control->label.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(control->label);
+
+    control->attachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, paramID, control->slider);
+
+    knobs.push_back(std::move(control));
+}
+
+void NoiseEngineAudioEditor::addChoice(const juce::String& paramID, const juce::String& labelText)
+{
+    auto control = std::make_unique<ChoiceControl>();
+
+    control->box.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(control->box);
+
+    control->label.setText(labelText, juce::dontSendNotification);
+    control->label.setFont(juce::Font(11.0f, juce::Font::bold));
+    control->label.setColour(juce::Label::textColourId, Palette::accentCyan);
+    control->label.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(control->label);
+
+    if (auto* param = dynamic_cast<juce::AudioParameterChoice*>(audioProcessor.apvts.getParameter(paramID)))
+        control->box.addItemList(param->choices, 1);
+
+    control->attachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        audioProcessor.apvts, paramID, control->box);
+
+    choices.push_back(std::move(control));
 }
 
 // ---------------------------------------------------------------------------
@@ -117,7 +115,7 @@ void NoiseEngineAudioEditor::setupKnob(juce::Slider& knob,
 // ---------------------------------------------------------------------------
 void NoiseEngineAudioEditor::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colours::black); // bright red — impossible to miss
+    g.fillAll(Palette::bgDark);
 }
 
 // ---------------------------------------------------------------------------
@@ -125,19 +123,43 @@ void NoiseEngineAudioEditor::paint(juce::Graphics& g)
 // ---------------------------------------------------------------------------
 void NoiseEngineAudioEditor::resized()
 {
-    const int knobSize = 110;
-    const int labelH   = 18;
-    const int topY     = 75;
-    const int spacing  = getWidth() / 3;
+    presetBar.setBounds(margin, margin, getWidth() - margin * 2, presetBarHeight);
 
-    auto placeKnob = [&](juce::Slider& knob, juce::Label& label, int col)
+    stepSequencer.setBounds(margin, margin + presetBarHeight + rowGap,
+                             getWidth() - margin * 2, stepSequencerHeight);
+
+    generatorPanel.setBounds(margin, margin + presetBarHeight + rowGap + stepSequencerHeight + rowGap,
+                              getWidth() - margin * 2, generatorPanelHeight);
+
+    int x = margin;
+    int y = margin + presetBarHeight + rowGap + stepSequencerHeight + rowGap + generatorPanelHeight + rowGap;
+
+    for (auto& c : choices)
     {
-        const int cx = spacing * col + spacing / 2;
-        knob.setBounds (cx - knobSize / 2, topY,               knobSize, knobSize);
-        label.setBounds(cx - knobSize / 2, topY + knobSize + 4, knobSize, labelH);
-    };
+        c->label.setBounds(x, y, comboW, labelH);
+        c->box.setBounds(x, y + labelH + 2, comboW - 8, comboH);
+        x += cellW;
+    }
 
-    placeKnob(bitDepthKnob,   bitDepthLabel,   0);
-    placeKnob(downsampleKnob, downsampleLabel, 1);
-    placeKnob(mixKnob,        mixLabel,        2);
+    x = margin;
+    y += labelH + 2 + comboH + rowGap;
+
+    const int knobCellH = knobSize + 4 + labelH;
+    int col = 0;
+
+    for (auto& k : knobs)
+    {
+        if (col == colsPerRow)
+        {
+            col = 0;
+            x = margin;
+            y += knobCellH + rowGap;
+        }
+
+        k->slider.setBounds(x, y, knobSize, knobSize);
+        k->label.setBounds(x, y + knobSize + 2, knobSize, labelH);
+
+        x += cellW;
+        ++col;
+    }
 }

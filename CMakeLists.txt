@@ -20,6 +20,16 @@ juce_generate_juce_header(NoiseEngine)
 target_sources(NoiseEngine PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
+    Source/DSP/StepPattern.cpp
+    Source/DSP/TranceGateEngine.cpp
+    Source/DSP/PatternGenerators.cpp
+    Source/Presets/FactoryPresets.cpp
+    Source/Presets/PresetManager.cpp
+    Source/UI/NoiseEngineLookAndFeel.cpp
+    Source/UI/StepWheelComponent.cpp
+    Source/UI/StepSequencerComponent.cpp
+    Source/UI/GeneratorPanelComponent.cpp
+    Source/UI/PresetBarComponent.cpp
 )
 
 target_compile_definitions(NoiseEngine PUBLIC
