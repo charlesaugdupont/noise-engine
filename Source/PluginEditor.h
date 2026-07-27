@@ -4,9 +4,14 @@
 #include "UI/PresetBarComponent.h"
 #include "UI/StepSequencerComponent.h"
 #include "UI/GeneratorPanelComponent.h"
+#include "UI/MacroSectionComponent.h"
 
-// The macro-knob grid is still bare-bones/data-driven (real grouped layout
-// is Phase 5 polish); the step grid above it is the real Phase 2 deliverable.
+// Top-level layout: PresetBar -> StepSequencer (wheel) -> GeneratorPanel ->
+// TIMING/SHAPE side by side -> one full-width STEREO & OUTPUT section.
+// (Stereo and Output used to be separate half-width panels, but Stereo only
+// has 2 controls and looked sparse/empty at the same width as Output's 3 —
+// merging them into one full-width row fits both comfortably in a single
+// row of controls instead.)
 class NoiseEngineAudioEditor : public juce::AudioProcessorEditor
 {
 public:
@@ -17,30 +22,13 @@ public:
     void resized() override;
 
 private:
-    struct KnobControl
-    {
-        juce::Slider slider;
-        juce::Label  label;
-        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
-    };
-
-    struct ChoiceControl
-    {
-        juce::ComboBox box;
-        juce::Label    label;
-        std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> attachment;
-    };
-
-    NoiseEngineAudioProcessor& audioProcessor;
     PresetBarComponent         presetBar;
     StepSequencerComponent     stepSequencer;
     GeneratorPanelComponent    generatorPanel;
 
-    std::vector<std::unique_ptr<KnobControl>>   knobs;
-    std::vector<std::unique_ptr<ChoiceControl>> choices;
-
-    void addKnob(const juce::String& paramID, const juce::String& labelText);
-    void addChoice(const juce::String& paramID, const juce::String& labelText);
+    MacroSectionComponent timingSection;
+    MacroSectionComponent shapeSection;
+    MacroSectionComponent stereoOutputSection;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseEngineAudioEditor)
 };

@@ -9,24 +9,22 @@ static NoiseEngineLookAndFeel neLookAndFeel;
 namespace
 {
     constexpr int margin              = 16;
-    constexpr int comboW              = 100;
-    constexpr int comboH              = 24;
-    constexpr int knobSize            = 72;
-    constexpr int labelH              = 14;
-    constexpr int cellW               = 100;
     constexpr int rowGap              = 16;
-    constexpr int colsPerRow          = 6;
-    constexpr int presetBarHeight      = PresetBarComponent::preferredHeight;
-    constexpr int stepSequencerHeight  = StepSequencerComponent::preferredHeight;
+    constexpr int sectionGap          = 12;
+    constexpr int presetBarHeight     = PresetBarComponent::preferredHeight;
+    constexpr int stepSequencerHeight = StepSequencerComponent::preferredHeight;
     constexpr int generatorPanelHeight = GeneratorPanelComponent::preferredHeight;
-    constexpr int windowWidth          = margin * 2 + colsPerRow * cellW + 60; // extra room for the generator panel row
+    constexpr int windowWidth         = 700;
 }
 
 // ---------------------------------------------------------------------------
 // Constructor
 // ---------------------------------------------------------------------------
 NoiseEngineAudioEditor::NoiseEngineAudioEditor(NoiseEngineAudioProcessor& p)
-    : AudioProcessorEditor(&p), audioProcessor(p), presetBar(p), stepSequencer(p), generatorPanel(p)
+    : AudioProcessorEditor(&p),
+      presetBar(p), stepSequencer(p), generatorPanel(p),
+      timingSection(p, "TIMING"), shapeSection(p, "SHAPE"),
+      stereoOutputSection(p, "STEREO & OUTPUT")
 {
     setLookAndFeel(&neLookAndFeel);
 
@@ -34,80 +32,49 @@ NoiseEngineAudioEditor::NoiseEngineAudioEditor(NoiseEngineAudioProcessor& p)
     addAndMakeVisible(stepSequencer);
     addAndMakeVisible(generatorPanel);
 
-    addChoice(ParamIDs::syncMode,     "SYNC");
-    addChoice(ParamIDs::rate,         "RATE");
-    addChoice(ParamIDs::rateModifier, "MODIFIER");
-    addChoice(ParamIDs::stereoMode,   "STEREO");
+    timingSection.addChoice(ParamIDs::syncMode,     "SYNC");
+    timingSection.addChoice(ParamIDs::rate,         "RATE");
+    timingSection.addChoice(ParamIDs::rateModifier, "MODIFIER");
+    timingSection.addKnob(ParamIDs::freeBpm,        "FREE BPM");
+    timingSection.addKnob(ParamIDs::swing,          "SWING");
+    addAndMakeVisible(timingSection);
 
-    addKnob(ParamIDs::freeBpm,       "FREE BPM");
-    addKnob(ParamIDs::swing,         "SWING");
-    addKnob(ParamIDs::attack,        "ATTACK");
-    addKnob(ParamIDs::hold,          "HOLD");
-    addKnob(ParamIDs::release,       "RELEASE");
-    addKnob(ParamIDs::stereoOffset,  "ST OFFSET");
-    addKnob(ParamIDs::depth,         "DEPTH");
-    addKnob(ParamIDs::mix,           "MIX");
-    addKnob(ParamIDs::outputGain,    "OUTPUT");
-    addKnob(ParamIDs::stepGlide,     "GLIDE");
-    addKnob(ParamIDs::probability,   "PROBABILITY");
+    shapeSection.addKnob(ParamIDs::attack,      "ATTACK");
+    shapeSection.addKnob(ParamIDs::hold,        "HOLD");
+    shapeSection.addKnob(ParamIDs::release,     "RELEASE");
+    shapeSection.addKnob(ParamIDs::stepGlide,   "GLIDE");
+    shapeSection.addKnob(ParamIDs::probability, "PROB.");
+    addAndMakeVisible(shapeSection);
 
-    // Bypass now lives as a power button in the wheel's centre; Prob On was
-    // removed entirely since it was fully redundant with the Probability
-    // knob (100% already means "no randomness", no separate flag needed).
-    setSize(windowWidth, presetBarHeight + rowGap + stepSequencerHeight + rowGap + generatorPanelHeight + rowGap + 300);
+    // One full-width row rather than Stereo/Output as separate half-width
+    // panels — Stereo (Mode + Offset) alone looked sparse/empty at the same
+    // width Output (3 knobs) needed, and both fit comfortably in a single
+    // row at full panel width anyway.
+    stereoOutputSection.addChoice(ParamIDs::stereoMode,   "MODE");
+    stereoOutputSection.addKnob(ParamIDs::stereoOffset,   "OFFSET");
+    stereoOutputSection.addKnob(ParamIDs::depth,          "DEPTH");
+    stereoOutputSection.addKnob(ParamIDs::mix,            "MIX");
+    stereoOutputSection.addKnob(ParamIDs::outputGain,     "OUTPUT");
+    stereoOutputSection.setCompactSingleRow(true);
+    addAndMakeVisible(stereoOutputSection);
+
+    const int contentWidth = windowWidth - margin * 2;
+    const int sectionWidth = (contentWidth - sectionGap) / 2;
+    const int topRowHeight = juce::jmax(timingSection.computePreferredHeight(sectionWidth),
+                                         shapeSection.computePreferredHeight(sectionWidth));
+    const int bottomRowHeight = stereoOutputSection.computePreferredHeight(contentWidth);
+
+    setSize(windowWidth,
+             margin + presetBarHeight + rowGap
+             + stepSequencerHeight + rowGap
+             + generatorPanelHeight + rowGap
+             + topRowHeight + sectionGap
+             + bottomRowHeight + margin);
 }
 
 NoiseEngineAudioEditor::~NoiseEngineAudioEditor()
 {
     setLookAndFeel(nullptr);
-}
-
-// ---------------------------------------------------------------------------
-// Control factories
-// ---------------------------------------------------------------------------
-void NoiseEngineAudioEditor::addKnob(const juce::String& paramID, const juce::String& labelText)
-{
-    auto control = std::make_unique<KnobControl>();
-
-    control->slider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
-    control->slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 18);
-    control->slider.setColour(juce::Slider::textBoxTextColourId,       Palette::textWhite);
-    control->slider.setColour(juce::Slider::textBoxBackgroundColourId, Palette::panelDark);
-    control->slider.setColour(juce::Slider::textBoxOutlineColourId,    juce::Colours::transparentBlack);
-    addAndMakeVisible(control->slider);
-
-    control->label.setText(labelText, juce::dontSendNotification);
-    control->label.setFont(juce::Font(11.0f, juce::Font::bold));
-    control->label.setColour(juce::Label::textColourId, Palette::accentCyan);
-    control->label.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(control->label);
-
-    control->attachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.apvts, paramID, control->slider);
-
-    knobs.push_back(std::move(control));
-}
-
-void NoiseEngineAudioEditor::addChoice(const juce::String& paramID, const juce::String& labelText)
-{
-    auto control = std::make_unique<ChoiceControl>();
-
-    control->box.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(control->box);
-
-    control->label.setText(labelText, juce::dontSendNotification);
-    control->label.setFont(juce::Font(11.0f, juce::Font::bold));
-    control->label.setColour(juce::Label::textColourId, Palette::accentCyan);
-    control->label.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(control->label);
-
-    if (auto* param = dynamic_cast<juce::AudioParameterChoice*>(audioProcessor.apvts.getParameter(paramID)))
-        control->box.addItemList(param->choices, 1);
-
-    control->attachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
-        audioProcessor.apvts, paramID, control->box);
-
-    choices.push_back(std::move(control));
 }
 
 // ---------------------------------------------------------------------------
@@ -123,43 +90,27 @@ void NoiseEngineAudioEditor::paint(juce::Graphics& g)
 // ---------------------------------------------------------------------------
 void NoiseEngineAudioEditor::resized()
 {
-    presetBar.setBounds(margin, margin, getWidth() - margin * 2, presetBarHeight);
+    const int contentWidth = getWidth() - margin * 2;
 
-    stepSequencer.setBounds(margin, margin + presetBarHeight + rowGap,
-                             getWidth() - margin * 2, stepSequencerHeight);
+    presetBar.setBounds(margin, margin, contentWidth, presetBarHeight);
 
-    generatorPanel.setBounds(margin, margin + presetBarHeight + rowGap + stepSequencerHeight + rowGap,
-                              getWidth() - margin * 2, generatorPanelHeight);
+    int y = margin + presetBarHeight + rowGap;
+    stepSequencer.setBounds(margin, y, contentWidth, stepSequencerHeight);
 
-    int x = margin;
-    int y = margin + presetBarHeight + rowGap + stepSequencerHeight + rowGap + generatorPanelHeight + rowGap;
+    y += stepSequencerHeight + rowGap;
+    generatorPanel.setBounds(margin, y, contentWidth, generatorPanelHeight);
 
-    for (auto& c : choices)
-    {
-        c->label.setBounds(x, y, comboW, labelH);
-        c->box.setBounds(x, y + labelH + 2, comboW - 8, comboH);
-        x += cellW;
-    }
+    y += generatorPanelHeight + rowGap;
 
-    x = margin;
-    y += labelH + 2 + comboH + rowGap;
+    const int sectionWidth = (contentWidth - sectionGap) / 2;
+    const int topRowHeight = juce::jmax(timingSection.computePreferredHeight(sectionWidth),
+                                         shapeSection.computePreferredHeight(sectionWidth));
 
-    const int knobCellH = knobSize + 4 + labelH;
-    int col = 0;
+    timingSection.setBounds(margin, y, sectionWidth, topRowHeight);
+    shapeSection.setBounds(margin + sectionWidth + sectionGap, y, sectionWidth, topRowHeight);
 
-    for (auto& k : knobs)
-    {
-        if (col == colsPerRow)
-        {
-            col = 0;
-            x = margin;
-            y += knobCellH + rowGap;
-        }
+    y += topRowHeight + sectionGap;
 
-        k->slider.setBounds(x, y, knobSize, knobSize);
-        k->label.setBounds(x, y + knobSize + 2, knobSize, labelH);
-
-        x += cellW;
-        ++col;
-    }
+    const int bottomRowHeight = stereoOutputSection.computePreferredHeight(contentWidth);
+    stereoOutputSection.setBounds(margin, y, contentWidth, bottomRowHeight);
 }

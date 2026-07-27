@@ -3,11 +3,31 @@
 
 namespace
 {
-    void setupCaption(juce::Label& label, const juce::String& text)
+    constexpr int padding    = 8;
+    constexpr int headerH    = 24;
+    constexpr int rowH       = 30;
+    constexpr int rowGap     = 6;
+    constexpr int gap        = 6;
+    constexpr int buttonColW = 100; // reserved on the right in both generator rows, so
+                                     // APPLY and RANDOMIZE always land in the same column
+
+    // EUCLID/RANDOM are group labels (one per generator, bigger + cyan, like
+    // a mini section title); PULSES/DENSITY/JITTER are field labels for the
+    // individual sliders (smaller + plain white). Same size/colour as each
+    // other was reading as no hierarchy at all.
+    void setupGroupLabel(juce::Label& label, const juce::String& text)
     {
         label.setText(text, juce::dontSendNotification);
-        label.setFont(juce::Font(10.0f, juce::Font::bold));
+        label.setFont(juce::Font(13.0f, juce::Font::bold));
         label.setColour(juce::Label::textColourId, Palette::accentCyan);
+        label.setJustificationType(juce::Justification::centredLeft);
+    }
+
+    void setupFieldLabel(juce::Label& label, const juce::String& text)
+    {
+        label.setText(text, juce::dontSendNotification);
+        label.setFont(juce::Font(11.0f, juce::Font::bold));
+        label.setColour(juce::Label::textColourId, Palette::textWhite);
         label.setJustificationType(juce::Justification::centredLeft);
     }
 }
@@ -18,11 +38,17 @@ namespace
 GeneratorPanelComponent::GeneratorPanelComponent(NoiseEngineAudioProcessor& processorToUse)
     : processor(processorToUse)
 {
-    setupCaption(euclideanCaption, "EUCLID");
-    setupCaption(pulsesCaption,    "PULSES");
-    setupCaption(randomCaption,    "RANDOM");
-    setupCaption(densityCaption,   "DENSITY");
-    setupCaption(jitterCaption,    "JITTER");
+    titleLabel.setText("PATTERN GENERATOR", juce::dontSendNotification);
+    titleLabel.setFont(juce::Font(15.0f, juce::Font::bold));
+    titleLabel.setColour(juce::Label::textColourId, Palette::accentCyan);
+    titleLabel.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(titleLabel);
+
+    setupGroupLabel(euclideanCaption, "EUCLID");
+    setupFieldLabel(pulsesCaption,    "PULSES");
+    setupGroupLabel(randomCaption,    "RANDOM");
+    setupFieldLabel(densityCaption,   "DENSITY");
+    setupFieldLabel(jitterCaption,    "JITTER");
 
     for (auto* label : { &euclideanCaption, &pulsesCaption, &randomCaption, &densityCaption, &jitterCaption })
         addAndMakeVisible(*label);
@@ -34,8 +60,7 @@ GeneratorPanelComponent::GeneratorPanelComponent(NoiseEngineAudioProcessor& proc
     setupSlider(densitySlider, 0.0, 100.0, 1.0, 50.0);
     setupSlider(jitterSlider,  0.0, 100.0, 1.0, 0.0);
 
-    for (auto* button : { &applyEuclideanButton, &randomizeButton, &rotateLeftButton,
-                           &rotateRightButton, &duplicateButton, &halveButton })
+    for (auto* button : { &applyEuclideanButton, &randomizeButton, &duplicateButton, &halveButton })
     {
         button->setColour(juce::TextButton::buttonColourId, Palette::panelDark);
         button->setColour(juce::TextButton::textColourOffId, Palette::accentCyan);
@@ -64,10 +89,8 @@ GeneratorPanelComponent::GeneratorPanelComponent(NoiseEngineAudioProcessor& proc
         });
     };
 
-    rotateLeftButton.onClick  = [this] { mutatePattern([](StepPattern& p) { PatternGenerators::rotateLeft(p); }); };
-    rotateRightButton.onClick = [this] { mutatePattern([](StepPattern& p) { PatternGenerators::rotateRight(p); }); };
-    duplicateButton.onClick   = [this] { mutatePattern([](StepPattern& p) { PatternGenerators::duplicateToDouble(p); }); };
-    halveButton.onClick       = [this] { mutatePattern([](StepPattern& p) { PatternGenerators::halveLength(p); }); };
+    duplicateButton.onClick = [this] { mutatePattern([](StepPattern& p) { PatternGenerators::duplicateToDouble(p); }); };
+    halveButton.onClick     = [this] { mutatePattern([](StepPattern& p) { PatternGenerators::halveLength(p); }); };
 
     startTimerHz(10);
 }
@@ -123,42 +146,65 @@ void GeneratorPanelComponent::timerCallback()
 }
 
 // ---------------------------------------------------------------------------
+// Paint — bordered/titled panel, matching MacroSectionComponent's look, plus
+// a thin divider between the Euclidean and Random rows so they read as two
+// distinct tools rather than one undifferentiated block.
+// ---------------------------------------------------------------------------
+void GeneratorPanelComponent::paint(juce::Graphics& g)
+{
+    auto bounds = getLocalBounds().toFloat();
+
+    g.setColour(Palette::panelDark);
+    g.fillRoundedRectangle(bounds, 6.0f);
+
+    g.setColour(Palette::knobTrack);
+    g.drawRoundedRectangle(bounds.reduced(0.5f), 6.0f, 1.0f);
+
+    const float dividerY = (float) (padding + headerH + rowH + rowGap / 2);
+    g.drawLine((float) padding, dividerY, bounds.getWidth() - (float) padding, dividerY, 1.0f);
+}
+
+// ---------------------------------------------------------------------------
 // Layout
 // ---------------------------------------------------------------------------
 void GeneratorPanelComponent::resized()
 {
-    constexpr int rowH    = 30;
-    constexpr int sliderW = 100;
-    constexpr int gap     = 6;
+    auto bounds = getLocalBounds().reduced(padding);
 
-    auto bounds = getLocalBounds();
-    auto row1   = bounds.removeFromTop(rowH);
+    titleLabel.setBounds(bounds.removeFromTop(headerH));
 
-    euclideanCaption.setBounds(row1.removeFromLeft(46));
+    // Row 1 — Euclidean. Button column reserved first (same width as row 2's)
+    // so APPLY and RANDOMIZE always line up in the same column regardless of
+    // how much space the preceding captions/sliders in each row take up.
+    auto row1        = bounds.removeFromTop(rowH);
+    auto row1Buttons = row1.removeFromRight(buttonColW);
+    applyEuclideanButton.setBounds(row1Buttons.withSizeKeepingCentre(90, 24));
+
+    euclideanCaption.setBounds(row1.removeFromLeft(58));
     row1.removeFromLeft(gap);
-    pulsesCaption.setBounds(row1.removeFromLeft(40));
-    pulsesSlider.setBounds(row1.removeFromLeft(220));
-    row1.removeFromLeft(gap);
-    applyEuclideanButton.setBounds(row1.removeFromLeft(70).reduced(0, 2));
+    pulsesCaption.setBounds(row1.removeFromLeft(52));
+    pulsesSlider.setBounds(row1);
 
-    bounds.removeFromTop(4);
-    auto row2 = bounds.removeFromTop(rowH);
+    bounds.removeFromTop(rowGap);
 
-    randomCaption.setBounds(row2.removeFromLeft(46));
-    row2.removeFromLeft(gap);
-    densityCaption.setBounds(row2.removeFromLeft(48));
-    densitySlider.setBounds(row2.removeFromLeft(sliderW));
-    row2.removeFromLeft(gap);
-    jitterCaption.setBounds(row2.removeFromLeft(38));
-    jitterSlider.setBounds(row2.removeFromLeft(sliderW));
-    row2.removeFromLeft(gap);
-    randomizeButton.setBounds(row2.removeFromLeft(86).reduced(0, 2));
+    // Row 2 — density-random.
+    auto row2        = bounds.removeFromTop(rowH);
+    auto row2Buttons = row2.removeFromRight(buttonColW);
+    randomizeButton.setBounds(row2Buttons.withSizeKeepingCentre(90, 24));
 
-    row2.removeFromLeft(gap * 2);
-    rotateLeftButton.setBounds(row2.removeFromLeft(26).reduced(0, 2));
-    rotateRightButton.setBounds(row2.removeFromLeft(26).reduced(0, 2));
+    randomCaption.setBounds(row2.removeFromLeft(58));
     row2.removeFromLeft(gap);
-    duplicateButton.setBounds(row2.removeFromLeft(36).reduced(0, 2));
+    densityCaption.setBounds(row2.removeFromLeft(52));
+    densitySlider.setBounds(row2.removeFromLeft(150));
     row2.removeFromLeft(gap);
-    halveButton.setBounds(row2.removeFromLeft(36).reduced(0, 2));
+    jitterCaption.setBounds(row2.removeFromLeft(42));
+    jitterSlider.setBounds(row2);
+
+    bounds.removeFromTop(rowGap);
+
+    // Row 3 — pattern utilities (rotate lives on the wheel now).
+    auto row3 = bounds.removeFromTop(26);
+    duplicateButton.setBounds(row3.removeFromLeft(40));
+    row3.removeFromLeft(gap);
+    halveButton.setBounds(row3.removeFromLeft(52));
 }

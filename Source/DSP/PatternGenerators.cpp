@@ -35,10 +35,36 @@ void randomize(StepPattern& pattern, float density, float jitter, juce::Random& 
     density = juce::jlimit(0.0f, 1.0f, density);
     jitter  = juce::jlimit(0.0f, 1.0f, jitter);
 
-    for (int i = 0; i < pattern.length; ++i)
+    const int length = pattern.length;
+
+    // Exact-count selection rather than an independent coin flip per step:
+    // a per-step Bernoulli trial only matches `density` in expectation, and
+    // the actual on-step count has real variance around that (e.g. a
+    // 16-step pattern at 25% has a standard deviation of ~1.7 steps — often
+    // landing visibly off from what the knob says, especially at shorter
+    // lengths). Shuffling indices and taking the first N instead guarantees
+    // the resulting density always matches, while still being random about
+    // *which* steps land on.
+    const int targetOnCount = juce::jlimit(0, length, juce::roundToInt((float) length * density));
+
+    std::array<int, StepPattern::maxSteps> indices {};
+    for (int i = 0; i < length; ++i)
+        indices[(size_t) i] = i;
+
+    for (int i = length - 1; i > 0; --i)
     {
-        auto& step = pattern.steps[(size_t) i];
-        step.enabled = rng.nextFloat() < density;
+        const int j = rng.nextInt(i + 1);
+        std::swap(indices[(size_t) i], indices[(size_t) j]);
+    }
+
+    std::array<bool, StepPattern::maxSteps> shouldBeOn {};
+    for (int i = 0; i < targetOnCount; ++i)
+        shouldBeOn[(size_t) indices[(size_t) i]] = true;
+
+    for (int i = 0; i < length; ++i)
+    {
+        auto& step   = pattern.steps[(size_t) i];
+        step.enabled = shouldBeOn[(size_t) i];
 
         // Unlike the wheel's manual toggle (which preserves level so a
         // muted step can come back at the same value), a full regenerate

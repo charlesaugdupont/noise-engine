@@ -12,13 +12,18 @@
 // No standalone reverse — removed to keep the toolset small; rotate covers
 // most of what people reached for it for.
 //
-// No rotation control on the Euclidean generator itself: that would just
-// duplicate the general-purpose rotate-left/right buttons (generate at
-// rotation 0, then nudge with < / > — works on any pattern, not just a
-// freshly-generated Euclidean one, and it's one less control to learn).
+// Rotate-left/right live on StepSequencerComponent now, flanking the wheel
+// — they're about repositioning the pattern that's already there, which
+// reads more as "a wheel control" than "a generator", unlike Euclid/Random/
+// duplicate/halve which all write new pattern content.
 //
 // Pulses/Density/Jitter are plain UI-local state, not persisted anywhere
 // yet — that lands with the preset system (Phase 4).
+//
+// Bordered/titled like MacroSectionComponent's panels (own paint(), not a
+// shared base — the two components' layout logic differs enough that
+// factoring out the ~10 lines of chrome wasn't worth the coupling risk to
+// MacroSectionComponent, which was already visually verified working).
 class GeneratorPanelComponent : public juce::Component,
                                  private juce::Timer
 {
@@ -26,14 +31,17 @@ public:
     explicit GeneratorPanelComponent(NoiseEngineAudioProcessor& processorToUse);
     ~GeneratorPanelComponent() override;
 
+    void paint(juce::Graphics&) override;
     void resized() override;
 
-    static constexpr int preferredHeight = 68;
+    static constexpr int preferredHeight = 138;
 
 private:
     NoiseEngineAudioProcessor& processor;
     juce::Random rng;
     int lastKnownLength = -1;
+
+    juce::Label titleLabel;
 
     juce::Label euclideanCaption, pulsesCaption;
     juce::Slider pulsesSlider;
@@ -43,10 +51,8 @@ private:
     juce::Slider densitySlider, jitterSlider;
     juce::TextButton randomizeButton { "RANDOMIZE" };
 
-    juce::TextButton rotateLeftButton  { "<" };
-    juce::TextButton rotateRightButton { ">" };
-    juce::TextButton duplicateButton   { "x2" };
-    juce::TextButton halveButton       { "/2" };
+    juce::TextButton duplicateButton { "2x" };
+    juce::TextButton halveButton     { "0.5x" };
 
     void timerCallback() override;
     void setupSlider(juce::Slider& slider, double minV, double maxV, double step, double defaultV);

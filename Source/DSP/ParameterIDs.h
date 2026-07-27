@@ -28,6 +28,6 @@ namespace ParamChoices
 {
     inline const juce::StringArray rate       { "1/1", "1/2", "1/4", "1/8", "1/16", "1/32", "1/64" };
     inline const juce::StringArray modifier   { "Straight", "Dotted", "Triplet" };
-    inline const juce::StringArray syncMode   { "DAW Sync", "Free" };
+    inline const juce::StringArray syncMode   { "DAW", "Free" };
     inline const juce::StringArray stereoMode { "Mono", "L-R Offset", "Mid-Side" };
 }

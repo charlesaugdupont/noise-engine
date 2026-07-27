@@ -2,6 +2,34 @@
 #include "PluginEditor.h"
 #include "DSP/ParameterIDs.h"
 
+namespace
+{
+    // SliderAttachment installs its own textFromValueFunction that calls
+    // param.getText(...) — it ignores a Slider's own
+    // setNumDecimalPlacesToDisplay() entirely. The only place that actually
+    // controls what gets displayed (in our UI *and* in any host's generic
+    // parameter view / automation lane) is the parameter's own
+    // stringFromValue function, set here.
+    juce::AudioParameterFloatAttributes displayAttributes(const juce::String& label, int decimalPlaces)
+    {
+        return juce::AudioParameterFloatAttributes()
+            .withLabel(label)
+            .withStringFromValueFunction([decimalPlaces](float value, int) -> juce::String
+            {
+                // juce::String(value, 0) does NOT mean "zero decimal places" —
+                // 0 is JUCE's internal sentinel for "auto/natural" formatting
+                // (the same path the argument-less String(float) constructor
+                // uses), so it was showing full natural precision for any
+                // non-round dragged value. Rounding to an int explicitly is
+                // the only way to actually force a whole-number display.
+                if (decimalPlaces <= 0)
+                    return juce::String(juce::roundToInt(value));
+
+                return juce::String(value, decimalPlaces);
+            });
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Parameter layout
 // ---------------------------------------------------------------------------
@@ -21,7 +49,8 @@ NoiseEngineAudioProcessor::createParameterLayout()
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { ParamIDs::freeBpm, 1 }, "Free BPM",
-        juce::NormalisableRange<float>(20.0f, 999.0f, 0.01f), 120.0f));
+        juce::NormalisableRange<float>(20.0f, 999.0f, 0.01f), 120.0f,
+        displayAttributes("", 0)));
 
     params.push_back(std::make_unique<juce::AudioParameterInt>(
         juce::ParameterID { ParamIDs::patternLength, 1 }, "Pattern Length",
@@ -30,22 +59,22 @@ NoiseEngineAudioProcessor::createParameterLayout()
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { ParamIDs::attack, 1 }, "Attack",
         juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f), 5.0f,
-        juce::AudioParameterFloatAttributes().withLabel("%")));
+        displayAttributes("%", 0)));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { ParamIDs::hold, 1 }, "Hold",
         juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f), 55.0f,
-        juce::AudioParameterFloatAttributes().withLabel("%")));
+        displayAttributes("%", 0)));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { ParamIDs::release, 1 }, "Release",
         juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f), 35.0f,
-        juce::AudioParameterFloatAttributes().withLabel("%")));
+        displayAttributes("%", 0)));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { ParamIDs::swing, 1 }, "Swing",
         juce::NormalisableRange<float>(0.0f, 75.0f, 0.01f), 0.0f,
-        juce::AudioParameterFloatAttributes().withLabel("%")));
+        displayAttributes("%", 0)));
 
     params.push_back(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID { ParamIDs::stereoMode, 1 }, "Stereo Mode", ParamChoices::stereoMode, 0));
@@ -53,32 +82,32 @@ NoiseEngineAudioProcessor::createParameterLayout()
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { ParamIDs::stereoOffset, 1 }, "Stereo Offset",
         juce::NormalisableRange<float>(-100.0f, 100.0f, 0.01f), 0.0f,
-        juce::AudioParameterFloatAttributes().withLabel("%")));
+        displayAttributes("%", 0)));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { ParamIDs::depth, 1 }, "Depth",
         juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f), 100.0f,
-        juce::AudioParameterFloatAttributes().withLabel("%")));
+        displayAttributes("%", 0)));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { ParamIDs::mix, 1 }, "Mix",
         juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f), 100.0f,
-        juce::AudioParameterFloatAttributes().withLabel("%")));
+        displayAttributes("%", 0)));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { ParamIDs::probability, 1 }, "Probability",
         juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f), 100.0f,
-        juce::AudioParameterFloatAttributes().withLabel("%")));
+        displayAttributes("%", 0)));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { ParamIDs::outputGain, 1 }, "Output Gain",
         juce::NormalisableRange<float>(-24.0f, 24.0f, 0.01f), 0.0f,
-        juce::AudioParameterFloatAttributes().withLabel("dB")));
+        displayAttributes("dB", 1)));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { ParamIDs::stepGlide, 1 }, "Step Glide",
         juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f), 0.0f,
-        juce::AudioParameterFloatAttributes().withLabel("%")));
+        displayAttributes("%", 0)));
 
     params.push_back(std::make_unique<juce::AudioParameterBool>(
         juce::ParameterID { ParamIDs::bypass, 1 }, "Bypass", false));

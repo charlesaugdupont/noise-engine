@@ -17,12 +17,14 @@ namespace PatternGenerators
     // comment for why the Euclidean rotation slider was removed).
     void applyEuclidean(StepPattern& pattern, int steps, int pulses);
 
-    // Independently rolls each step within the pattern's current length
-    // on/off weighted by `density` (0..1); steps that land on also get their
-    // level randomly reduced by up to `jitter` (0..1) below full — e.g. at
-    // jitter=0.3, triggered steps land somewhere in [0.7, 1.0]. Steps that
-    // land off are reset to level 0 (unlike the wheel's manual toggle,
-    // which preserves level — this is a full regenerate, not a mute).
+    // Randomly turns on exactly round(length * density) steps (a shuffle +
+    // take-first-N, not an independent coin flip per step — that would only
+    // match `density` in expectation, with real variance around it). Steps
+    // that land on also get their level randomly reduced by up to `jitter`
+    // (0..1) below full — e.g. at jitter=0.3, triggered steps land somewhere
+    // in [0.7, 1.0]. Steps that land off are reset to level 0 (unlike the
+    // wheel's manual toggle, which preserves level — this is a full
+    // regenerate, not a mute).
     void randomize(StepPattern& pattern, float density, float jitter, juce::Random& rng);
 
     void rotateLeft(StepPattern& pattern);

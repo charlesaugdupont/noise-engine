@@ -30,6 +30,7 @@ target_sources(NoiseEngine PRIVATE
     Source/UI/StepSequencerComponent.cpp
     Source/UI/GeneratorPanelComponent.cpp
     Source/UI/PresetBarComponent.cpp
+    Source/UI/MacroSectionComponent.cpp
 )
 
 target_compile_definitions(NoiseEngine PUBLIC

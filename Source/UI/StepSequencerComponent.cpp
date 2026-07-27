@@ -2,6 +2,12 @@
 #include "Colours.h"
 #include "../DSP/ParameterIDs.h"
 
+namespace
+{
+    constexpr int rotateButtonSize = 44;
+    constexpr int rotateGap        = 20;
+}
+
 // ---------------------------------------------------------------------------
 // Construction
 // ---------------------------------------------------------------------------
@@ -30,6 +36,16 @@ StepSequencerComponent::StepSequencerComponent(NoiseEngineAudioProcessor& proces
 
     addAndMakeVisible(wheel);
 
+    for (auto* button : { &rotateLeftButton, &rotateRightButton })
+    {
+        button->setColour(juce::TextButton::buttonColourId, Palette::panelDark);
+        button->setColour(juce::TextButton::textColourOffId, Palette::accentCyan);
+        addAndMakeVisible(*button);
+    }
+
+    rotateLeftButton.onClick  = [this] { rotatePattern([](StepPattern& p) { PatternGenerators::rotateLeft(p); }); };
+    rotateRightButton.onClick = [this] { rotatePattern([](StepPattern& p) { PatternGenerators::rotateRight(p); }); };
+
     startTimerHz(30);
 }
 
@@ -56,9 +72,20 @@ void StepSequencerComponent::resized()
 
     bounds.removeFromTop(headerGridGap);
 
-    // Centre the (square) wheel within the available area.
+    // Centre the (square) wheel within the available area, then flank it
+    // with rotate-left/right — their spatial position either side of the
+    // wheel doubles as a hint for what they do.
     const int size = juce::jmin(bounds.getWidth(), bounds.getHeight());
-    wheel.setBounds(bounds.withSizeKeepingCentre(size, size));
+    const auto wheelBounds = bounds.withSizeKeepingCentre(size, size);
+    wheel.setBounds(wheelBounds);
+
+    rotateLeftButton.setBounds(wheelBounds.getX() - rotateGap - rotateButtonSize,
+                                wheelBounds.getCentreY() - rotateButtonSize / 2,
+                                rotateButtonSize, rotateButtonSize);
+
+    rotateRightButton.setBounds(wheelBounds.getRight() + rotateGap,
+                                 wheelBounds.getCentreY() - rotateButtonSize / 2,
+                                 rotateButtonSize, rotateButtonSize);
 }
 
 // ---------------------------------------------------------------------------
@@ -70,4 +97,17 @@ void StepSequencerComponent::timerCallback()
 {
     wheel.syncFromProcessor();
     wheel.repaint();
+}
+
+// ---------------------------------------------------------------------------
+// Rotate — reads/mutates/writes the pattern directly; rotate never changes
+// length, so no need for the length-resync GeneratorPanelComponent's
+// generic mutator does for generators that might.
+// ---------------------------------------------------------------------------
+void StepSequencerComponent::rotatePattern(const std::function<void(StepPattern&)>& mutator)
+{
+    auto pattern = processor.getPatternSnapshot();
+    pattern.length = processor.getPatternLength();
+    mutator(pattern);
+    processor.setPatternSnapshot(pattern);
 }
